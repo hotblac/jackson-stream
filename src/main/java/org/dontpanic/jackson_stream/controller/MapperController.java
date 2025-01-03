@@ -1,6 +1,7 @@
 package org.dontpanic.jackson_stream.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SequenceWriter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.dontpanic.jackson_stream.model.Model;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -32,6 +33,23 @@ public class MapperController {
     public void valueAsOutputStream(HttpServletResponse response) throws IOException {
         SuperModel largeModel = buildLargeModel();
         objectMapper.writeValue(response.getOutputStream(), largeModel);
+    }
+
+    @GetMapping("/valuesArrayAsOutputStream")
+    public void valuesArrayAsOutputStream(HttpServletResponse response) throws IOException {
+
+        // Create a SequenceWriter to write Models one by one.
+        try (SequenceWriter sequenceWriter = objectMapper.writer().writeValues(response.getOutputStream())) {
+            sequenceWriter.init(true);
+
+            for (int i = 0; i < MODEL_COUNT; i++) {
+                Model model = new Model();
+                model.setId(i);
+                model.setName("Model " + i);
+                model.setData(RandomStringUtils.randomAlphanumeric(DATA_LENGTH));
+                sequenceWriter.write(model);
+            }
+        }
 
     }
 
@@ -39,8 +57,8 @@ public class MapperController {
         SuperModel superModel = new SuperModel();
         for (int i=0; i<MODEL_COUNT; i++) {
             Model model = new Model();
-            model.setId(1L);
-            model.setName("Model 1");
+            model.setId(i);
+            model.setName("Model " + i);
             model.setData(RandomStringUtils.randomAlphanumeric(DATA_LENGTH));
             superModel.addModel(model);
         }
