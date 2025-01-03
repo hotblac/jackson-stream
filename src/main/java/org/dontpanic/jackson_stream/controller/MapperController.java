@@ -14,8 +14,12 @@ import java.io.IOException;
 @RestController
 public class MapperController {
 
-    private final int MODEL_COUNT = 16 * 1024;
-    private final int DATA_LENGTH = 1024;
+    // Maximum number of models before OutOfMemoryError when I run with -Xmx32M
+    private static final int VALUE_AS_STRING_MODEL_COUNT = 2 * 1024;
+    private static final int VALUE_AS_OUTPUT_STREAM_MODEL_COUNT = 16 * 1024;
+    private static final int VALUES_ARRAY_AS_OUTPUT_STREAM_MODEL_COUNT = 128 * 1024; // The highest I've tried. We can possibly do more
+
+    private static final int DATA_LENGTH = 1024;
 
     private final ObjectMapper objectMapper;
 
@@ -25,13 +29,13 @@ public class MapperController {
 
     @GetMapping("/valueAsString")
     public String valueAsString() throws IOException {
-        SuperModel largeModel = buildLargeModel();
+        SuperModel largeModel = buildLargeModel(VALUE_AS_STRING_MODEL_COUNT);
         return objectMapper.writeValueAsString(largeModel);
     }
 
     @GetMapping("/valueAsOutputStream")
     public void valueAsOutputStream(HttpServletResponse response) throws IOException {
-        SuperModel largeModel = buildLargeModel();
+        SuperModel largeModel = buildLargeModel(VALUE_AS_OUTPUT_STREAM_MODEL_COUNT);
         objectMapper.writeValue(response.getOutputStream(), largeModel);
     }
 
@@ -42,26 +46,28 @@ public class MapperController {
         try (SequenceWriter sequenceWriter = objectMapper.writer().writeValues(response.getOutputStream())) {
             sequenceWriter.init(true);
 
-            for (int i = 0; i < MODEL_COUNT; i++) {
-                Model model = new Model();
-                model.setId(i);
-                model.setName("Model " + i);
-                model.setData(RandomStringUtils.randomAlphanumeric(DATA_LENGTH));
+            for (int i = 0; i < VALUES_ARRAY_AS_OUTPUT_STREAM_MODEL_COUNT; i++) {
+                Model model = buildModel(i);
                 sequenceWriter.write(model);
             }
         }
 
     }
 
-    private SuperModel buildLargeModel() {
+    private SuperModel buildLargeModel(int count) {
         SuperModel superModel = new SuperModel();
-        for (int i=0; i<MODEL_COUNT; i++) {
-            Model model = new Model();
-            model.setId(i);
-            model.setName("Model " + i);
-            model.setData(RandomStringUtils.randomAlphanumeric(DATA_LENGTH));
+        for (int i=0; i<count; i++) {
+            Model model = buildModel(i);
             superModel.addModel(model);
         }
         return superModel;
+    }
+
+    private Model buildModel(int i) {
+        Model model = new Model();
+        model.setId(i);
+        model.setName("Model " + i);
+        model.setData(RandomStringUtils.randomAlphanumeric(DATA_LENGTH));
+        return model;
     }
 }
